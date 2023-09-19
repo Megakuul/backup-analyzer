@@ -1,59 +1,17 @@
 <script>
-	import Counter from './Counter.svelte';
-	import welcome from '$lib/images/svelte-welcome.webp';
-	import welcome_fallback from '$lib/images/svelte-welcome.png';
+	import icon from "$lib/images/backup-analyzer.svg";
 </script>
 
 <svelte:head>
-	<title>Home</title>
-	<meta name="description" content="Svelte demo app" />
+	<title>Backup Analyzer</title>
+	<meta name="description" content="
+	Backup analyzer is a tool to help you building a stable backupinfrastructure
+	focused on the Veeam-Backup service.
+	" />
 </svelte:head>
 
-<section>
-	<h1>
-		<span class="welcome">
-			<picture>
-				<source srcset={welcome} type="image/webp" />
-				<img src={welcome_fallback} alt="Welcome" />
-			</picture>
-		</span>
 
-		to your new<br />SvelteKit app
-	</h1>
-
-	<h2>
-		try editing <strong>src/routes/+page.svelte</strong>
-	</h2>
-
-	<Counter />
-</section>
-
-<style>
-	section {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		flex: 0.6;
-	}
-
-	h1 {
-		width: 100%;
-	}
-
-	.welcome {
-		display: block;
-		position: relative;
-		width: 100%;
-		height: 0;
-		padding: 0 0 calc(100% * 495 / 2048) 0;
-	}
-
-	.welcome img {
-		position: absolute;
-		width: 100%;
-		height: 100%;
-		top: 0;
-		display: block;
-	}
-</style>
+<div class="flex flex-col items-center my-10 opacity-80">
+	<img src="{icon}" alt="Backup Analyzer Logo" class="lg:w-auto w-1/4 my-10 animate-pulse">
+	<h1 class="text-2xl sm:text-6xl my-10 font-bold drop-shadow-2xl transition-all">Backup Analyzer</h1>
+</div>
