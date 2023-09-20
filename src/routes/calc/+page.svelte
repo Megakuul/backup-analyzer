@@ -3,7 +3,13 @@
      * @typedef {('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday')} DAY
     */
 
+    import { loadIfExisting, setLocStore } from "$lib/localstore.helper";
+    import { onMount } from "svelte";
     import { fade } from "svelte/transition";
+
+    const WEEKDAYS_LOCSTORE_KEY = "conf_weekdays";
+    const GFS_LOCSTORE_KEY = "conf_gfs";
+    const MAIN_OPTIONS_LOCSTORE_KEY = "conf_main_options";
 
     /**
      * @typedef {Object} WEEKDAY
@@ -36,21 +42,28 @@
         { day: 'Friday', points: 0, exec: false, full: false },
         { day: 'Saturday', points: 0, exec: false, full: false },
         { day: 'Sunday', points: 0, exec: false, full: false }
-    ]
+    ];
 
     /** @type {GFS} */
-    const gfs = {
+    let gfs = {
         weekly: 0,
         monthly: 0,
         yearly: 0
-    }
+    };
 
     /** @type {MAIN_OPTIONS} */
-    const main_options = {
+    let main_options = {
         restore_points: 0,
         full_size: 0,
         increment_size: 0
-    }
+    };
+
+    onMount(() => {
+        // Try to load config from localstore
+        weekdays = loadIfExisting(WEEKDAYS_LOCSTORE_KEY, weekdays);
+        gfs = loadIfExisting(GFS_LOCSTORE_KEY, gfs);
+        main_options = loadIfExisting(MAIN_OPTIONS_LOCSTORE_KEY, main_options);
+    });
 
     /**  
      * @param {WEEKDAY[]} weekdays
@@ -88,10 +101,8 @@
         });
     }
 
-
     // Updates the Canvas displaying the RetentionPolicy
     const updateCanvas = () => {
-        console.log("Reacted");
         weekdays = processRetentionPolicy(weekdays, main_options, gfs);
     }
 
@@ -132,9 +143,23 @@
             updateCanvas();
         }
     }
+
+    let saveState = false;
+
+    /** Saves the current state to the local store */ 
+    const onSaveClick = () => {
+        setLocStore(WEEKDAYS_LOCSTORE_KEY, weekdays);
+        setLocStore(GFS_LOCSTORE_KEY, gfs);
+        setLocStore(MAIN_OPTIONS_LOCSTORE_KEY, main_options);
+
+        saveState=true;
+        setTimeout(() => {
+            saveState=false;
+        }, 2000)
+    }
 </script>
 
-<div class="bg-green-600 bg-opacity-10 rounded-xl p-10 mb-10 min-h-[40vh]">
+<div class="bg-green-600 bg-opacity-10 rounded-xl sm:p-10 p-2 mb-10 h-[50vh]">
     <div class="flex flex-row justify-around">
         {#each weekdays as weekday}
             {#if weekday.exec}
@@ -211,6 +236,11 @@
         {/each}
     </div>
 </div>
+
+<center>
+    <button on:click={onSaveClick} class="btn {saveState ? "btn-success" : "btn-ghost"} opacity-50 my-5 w-1/2 transition-all">
+        {saveState ? "Saved!" : "Save State"}</button>
+</center>
 
 <style>
     .option-container {
