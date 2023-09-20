@@ -20,3 +20,7 @@
       display: none;
     }
 }
+
+.btn {
+  @apply rounded-lg
+}

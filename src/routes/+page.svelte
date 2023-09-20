@@ -13,5 +13,12 @@
 
 <div class="flex flex-col items-center my-10 opacity-80">
 	<img src="{icon}" alt="Backup Analyzer Logo" class="lg:w-auto w-1/4 my-10 animate-pulse">
-	<h1 class="text-2xl sm:text-6xl my-10 font-bold drop-shadow-2xl transition-all">Backup Analyzer</h1>
+	<h1 class="text-2xl sm:text-6xl my-10 font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-900 to-green-500 transition-all">Backup Analyzer</h1>
+	
+	<div class="flex flex-wrap justify-around items-center w-full">
+		<a href="/calc" class="btn btn-primary text-sm lg:text-xl w-72 lg:w-96 my-5">
+			Backup Calculator</a>
+		<a href="/infrastructure" class="btn btn-primary text-sm lg:text-xl w-72 lg:w-96 my-5">
+			Infrastructure Builder</a>
+	</div>
 </div>

@@ -20,6 +20,8 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
+
+		@apply bg-gradient-to-tr from-slate-950 to-green-900;
 	}
 
 	main {
