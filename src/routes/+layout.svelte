@@ -34,6 +34,12 @@
 		box-sizing: border-box;
 	}
 
+	@media (min-width: 1200px) {
+		main {
+			padding: 2rem;
+		}
+	}
+
 	footer {
 		display: flex;
 		flex-direction: column;
