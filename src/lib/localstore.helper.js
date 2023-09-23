@@ -17,3 +17,7 @@ export const setLocStore = (key, val) => {
     const strVal = JSON.stringify(val);
     localStorage.setItem(key, strVal);
 }
+
+export const resetLocStore = () => {
+    localStorage.clear();
+}

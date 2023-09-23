@@ -4,16 +4,14 @@
      * @typedef {('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday')} DAY
     */
 
-    import { loadIfExisting, setLocStore } from "$lib/localstore.helper";
+    import { loadIfExisting, resetLocStore, setLocStore } from "$lib/localstore.helper";
+    import { error, json } from "@sveltejs/kit";
     import { onMount } from "svelte";
     import { fade } from "svelte/transition";
 
     const WEEKDAYS_LOCSTORE_KEY = "conf_weekdays";
     const GFS_LOCSTORE_KEY = "conf_gfs";
     const MAIN_OPTIONS_LOCSTORE_KEY = "conf_main_options";
-    
-    const DEF_GFS_WEEKLY_POINT = "Sunday";
-
 
     /**
      * @typedef {Object} BACKUP
@@ -73,6 +71,24 @@
 
     /** Is SaveState clicked @type {boolean} */
     let isSaveState = false;
+    
+    /** uploadInput binding @type {HTMLElement} */
+    let uploadInput;
+
+    /** State of Compact View @type {boolean} */
+    let compactViewChecked = false;
+
+    /** Datagrowth per year in percentage @type {number} */
+    let dataGrowth = 40;
+
+    /** Years to calculate ahead @type {number} */
+    let yearsToCalc = 1;
+
+    /** max storage @type {number} */
+    let maxStorage = 0;
+
+    /** max storage in n years @type {number} */
+    let maxStorageCust = 0;
 
     onMount(() => {
         // Try to load config from localstore
@@ -229,7 +245,7 @@
 
             // If the gfs day is valid (happens if weekly backups are enabled) directly set the monthly
             if (processedDays[gfsDayIndex].full) {
-                weeks[weekIndex][gfsDayIndex].monthly = true;
+                processedDays[gfsDayIndex].points[weekIndex].monthly = true;
             } else {
             // If the gfs day is invalid (no full backup) (happens if weekly backups are disabled) find the gfs day
                 // Loop every day to find gfs day
@@ -242,7 +258,6 @@
                 }
             }
         }
-
 
         // Process yearly backups
         // Loop every year (assuming a year is represented as 52 weeks)
@@ -265,7 +280,7 @@
 
             // If the gfs day is valid (happens if weekly | monthly backups are enabled) directly set the yearly
             if (processedDays[gfsDayIndex].full) {
-                weeks[weekIndex][gfsDayIndex].yearly = true;
+                processedDays[gfsDayIndex].points[weekIndex].yearly = true;
             } else {
             // If the gfs day is invalid (no full backup) (happens if weekly & monthly backups are disabled) find the gfs day
                 // Loop every day to find the gfs day
@@ -287,6 +302,7 @@
         // Create buffer, to avoid rerendering twice
         const weekdaysBuf = processRetentionPolicy(weekdays, main_options);
         weekdays = processGFS(weekdaysBuf, main_options, gfs);
+        calculateStorage();
     }
 
     /** Updateevent for MainOptions
@@ -364,9 +380,108 @@
             isSaveState=false;
         }, 2000)
     }
+
+    /** Resets the state and clears the cache */
+    const onResetClick = () => {
+        resetLocStore();
+        window.location.reload();
+    }
+    
+    /** Handles fileuploads
+     * @param {Event & {currentTarget: EventTarget & HTMLInputElement;}} e
+     */
+    const onUploadInput = (e) => {
+        let conf = e.currentTarget.files;
+        if (conf) {
+            let reader = new FileReader();
+            reader.readAsText(conf[0]);
+            reader.onload = (re) => {
+                try {
+                    // @ts-ignore
+                    const jsonData = JSON.parse(re.target.result);
+                    if (!jsonData.main_options || !jsonData.gfs || !jsonData.weekdays) {
+                        throw Error("Invalid configuration")
+                    }
+                    main_options = jsonData.main_options;
+                    gfs = jsonData.gfs;
+                    weekdays = jsonData.weekdays;
+                    updateCanvas();
+                } catch (error) {
+                    alert(error);
+                }
+            }
+        } else {
+            alert("No file selected!");
+        }
+    }
+
+    const onDownloadClick = () => {
+        const exportStr = JSON.stringify({
+            main_options: main_options,
+            gfs: gfs,
+            weekdays: weekdays,
+        });
+
+        const blob = new Blob([exportStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const e = document.createElement("a");
+        e.href = url;
+        e.download = "backupcalculation.json";
+        document.body.appendChild(e);
+        e.click();
+        document.body.removeChild(e);
+    }
+
+
+    const calculateStorage = () => {
+        /**
+         * Veeam retains a full backup chain until its last incremental is eligible for deletion.
+         * Two full backups are buffered: one for the chain's integrity and another as a safeguard.
+         * 
+         * 
+         * IMPORTANT: Do not take this 2 full-backups as your backups storage buffer, 
+         * they are system-critical buffers we need. You will always need to define a buffer for the backups,
+         * usually this should be around 15% (without the data growth buffer)
+        */
+        maxStorage = 2*main_options.full_size;
+
+        // Filter out days that are processed (i.e. days on which backups are executed)
+        const processedDays = weekdays.filter((weekday) => weekday.exec);
+        if (processedDays.length <= 0) {
+            maxStorage = 0;
+            return;
+        }
+
+        // Add the base storage of the restorepoints
+        for (let i = 0; i < processedDays.length; i++) {
+            /** Determine the number of valid backup points for the day. 
+             * Undefined values can appear in the array when using GFS. */ 
+            const numberOfPoints = processedDays[i].points
+                .filter(value => value !== undefined).length;
+
+            // Determine the size of the backup for the day: either full or incremental
+            const backupSizeForDay = processedDays[i].full ?
+                 main_options.full_size : main_options.increment_size;
+
+            maxStorage += numberOfPoints*backupSizeForDay;
+        }
+
+        maxStorage = Math.round(maxStorage);
+
+        maxStorageCust = maxStorage;
+
+        // Limit yearsToCalc to avoid page crashes when to high values are entered
+        yearsToCalc = yearsToCalc > 99 ? 0 : yearsToCalc;
+
+        for (let i = 0; i < yearsToCalc; i++) {
+            maxStorageCust = Math.round(maxStorageCust*((dataGrowth / 100)+1));
+        }
+    }
+
 </script>
 
-<div class="bg-green-600 bg-opacity-10 rounded-xl sm:p-10 p-2 mb-10 h-[65vh] overflow-x-scroll">
+<div class="bg-green-600 bg-opacity-10 rounded-xl sm:p-10 p-2 mb-4 h-[65vh] overflow-x-scroll">
     <div class="flex flex-row justify-around">
         {#each weekdays as weekday}
             {#if weekday.exec}
@@ -379,18 +494,18 @@
                     {#if backup}
                     <div class="tooltip indicator sm:my-4 my-2" data-tip="{backup.size}">
                         {#if backup.yearly}
-                        <span class="indicator-item badge badge-error">yearly</span>
+                        <span transition:fade class="indicator-item badge badge-error">yearly</span>
                         {:else if backup.monthly}
-                        <span class="indicator-item badge badge-info">monthly</span>
+                        <span transition:fade class="indicator-item badge badge-info">monthly</span>
                         {:else if backup.weekly}
-                        <span class="indicator-item badge badge-primary">weekly</span>
+                        <span transition:fade class="indicator-item badge badge-primary">weekly</span>
                         {/if}
                         <div transition:fade class="btn btn-ghost {backup.full ? "bg-orange-500" : "bg-green-500"}
                             bg-opacity-25 hover:animate-pulse
                             xl:w-28 xl:h-28 md:w-24 md:h-24 h-10 w-10">
                         </div>
                     </div>
-                    {:else}
+                    {:else if !compactViewChecked}
                     <div transition:fade class="bg-opacity-0
                         xl:w-28 xl:h-28 md:w-24 md:h-24 h-10 w-10 sm:my-4 my-2">
                     </div>
@@ -399,6 +514,31 @@
                 </div>
             {/if}
         {/each}
+    </div>
+</div>
+
+<div class="bg-green-600 bg-opacity-10 rounded-xl flex flex-wrap w-full justify-around mb-4">
+    <div class="rounded-md p-2 m-2 select-none font-bold">
+        <p>data growth per year</p>
+        <div class="tooltip tooltip-bottom" data-tip="{dataGrowth}%">
+            <input type="range" min="0" max="100" class="range range-primary mt-1 opacity-60" 
+            on:input={calculateStorage} bind:value={dataGrowth} />
+        </div>
+    </div>
+    <div class="rounded-md p-2 m-2 select-none font-bold">
+        <p>years to calculate</p>
+        <input type="number" placeholder="years" min="0" max="10" class="input mt-1 h-7 opacity-70" 
+        on:change={calculateStorage} bind:value={yearsToCalc} />
+    </div>
+    <div class="rounded-md p-2 m-2 select-none font-bold">
+        <p>max storage (in GB):</p>
+        <p class="select-text bg-green-400 bg-opacity-10 rounded-md p-1 mt-1
+        text-center hover:bg-opacity-20 transition-all overflow-hidden cursor-text">{maxStorage}</p>
+    </div>
+    <div class="rounded-md p-2 m-2 select-none font-bold">
+        <p>max storage in {yearsToCalc} years:</p>
+        <p class="select-text bg-green-400 bg-opacity-10 rounded-md p-1 mt-1
+        text-center hover:bg-opacity-20 transition-all overflow-hidden cursor-text">{maxStorageCust}</p>
     </div>
 </div>
 
@@ -460,6 +600,10 @@
             <input type="number" placeholder="Yearly" max="10" min="0" on:change={(e) => {updateGFS(e, gfs, "yearly")}}
             class="input opacity-70 w-24" bind:value={gfs.yearly}/>
         </div>
+        <div class="flex flex-row mt-6 justify-between items-center">
+            <p class="pr-4">Compact View</p>
+            <input type="checkbox" class="toggle toggle-primary opacity-50" bind:checked={compactViewChecked} />
+        </div>
     </div>
 
     <div class="option-container">
@@ -488,10 +632,15 @@
     </div>
 </div>
 
-<center>
-    <button on:click={onSaveClick} class="btn {isSaveState ? "btn-success" : "btn-ghost"} opacity-50 my-5 w-1/2 transition-all">
+<div class="flex flex-wrap justify-around my-5">
+    <button on:click={onSaveClick} 
+    class="btn {isSaveState ? "btn-success" : "btn-ghost"} opacity-50 transition-all min-w-[25%] max-w-full">
         {isSaveState ? "Saved!" : "Save State"}</button>
-</center>
+    <button on:click={onResetClick} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Reset State</button>
+    <button on:click={onDownloadClick} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Download State</button>
+    <button on:click={() => {uploadInput.click()}} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Upload State</button>
+    <input style="display:none" type="file" accept=".json" on:change={(e)=>onUploadInput(e)} bind:this={uploadInput} >
+</div>
 
 <style>
     .option-container {
