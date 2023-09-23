@@ -79,15 +79,17 @@
         weekdays = loadIfExisting(WEEKDAYS_LOCSTORE_KEY, weekdays);
         gfs = loadIfExisting(GFS_LOCSTORE_KEY, gfs);
         main_options = loadIfExisting(MAIN_OPTIONS_LOCSTORE_KEY, main_options);
+        updateCanvas();
     });
 
-    /**  
+    /** ProcessRetentionPolicy will create the restorepoints and mark the fulls
+     * 
+     * This function uses days as orientation (horizontal)
      * @param {WEEKDAY[]} weekdays
      * @param {MAIN_OPTIONS} main_options
      * @returns {WEEKDAY[]}
     */
     const processRetentionPolicy = (weekdays, main_options) => {
-
         /** @type {WEEKDAY[]} */
         const processedDays = weekdays.filter(weekday => weekday.exec);
         if (processedDays.length === 0) return weekdays;
@@ -101,17 +103,17 @@
         const extraPoints = main_options.restore_points % processedDays.length;
         
         /** @type {number} */
-        let pointIndex = 0;
+        let dayIndex = 0;
         // We create a new object and return it, because svelte will not react if we directly edit the weekdays object.
         return weekdays.map((weekday, _) => {
             if (!weekday.exec) return weekday;
 
-            pointIndex++;
+            dayIndex++;
 
             /** @type {Array<BACKUP>} */
             let pointsBuf = [];
 
-            for (let i = 1; i < basePoints + (pointIndex <= extraPoints ? 1 : 0); i++) {
+            for (let pointIndex = 0; pointIndex < basePoints + (dayIndex <= extraPoints ? 1 : 0); pointIndex++) {
                 /** @type {BACKUP} */
                 const point = {
                     full: false,
@@ -122,9 +124,12 @@
                 };
 
                 // Initial Backup is always full
-                if (i===1 && pointIndex===1) {point.full == true}
-                // Set Backup to full if the weekday is full
-                point.full = weekday.full;
+                if (pointIndex===0 && dayIndex===1) {
+                    point.full = true
+                } else {
+                    // Set Backup to full if the weekday is full
+                    point.full = weekday.full;
+                }
 
                 // Set Backup size
                 point.size = point.full 
@@ -141,7 +146,9 @@
         });
     }
 
-    /** TODO: ProcessGFS does not work right now
+    /** ProcessGFS will mark all the GFS points
+     * 
+     * This function uses the weeks as orientation (vertical)
      * @param {WEEKDAY[]} weekdays
      * @param {MAIN_OPTIONS} main_options
      * @param {GFS} gfs
@@ -152,14 +159,124 @@
             return weekdays;
         }
 
+        /** @type {Array<WEEKDAY>} Pointer cache for processed days */
+        const processedDays = weekdays.filter((weekday) => weekday.exec);
+
+        const WeeksPerMonth = 4;
+        const WeeksPerYear = 52;
+
+        /** @type {Array<BACKUP[]>} */
         let weeks = [];
 
-        for (let i = 0; i < main_options.restore_points; i+=7) {
+        // Convert structure from day-based to week-based
+        let weekIndex = 0;
+        for (let i = 0; i < main_options.restore_points;) {
             const week = [];
-            for (let j = 0;j < 7; j++) {
-                week.push(weekdays[j]);
+            for (let j = 0; j < processedDays.length && i < main_options.restore_points; j++) {
+                week.push(processedDays[j].points[weekIndex]);
+                i++;
             }
             weeks.push(week);
+            weekIndex++;
+        }
+
+        // Process weekly backups
+        /** @type {number} Holds the day when the GFS Retention is done */
+        let gfsDayIndex = 0;
+        // Loop every week
+        for (let i = 0; i < gfs.weekly; i++) {
+            // Backup does not exist
+            if (!processedDays[gfsDayIndex].points[i]) {
+                if (!processedDays[gfsDayIndex].full) continue;
+                processedDays[gfsDayIndex].points[i] = {
+                    full: true,
+                    weekly: true,
+                    monthly: false,
+                    yearly: false,
+                    size: main_options.full_size,
+                }
+                continue;
+            }
+            // Backup does already exist
+
+            // Reverseloop every day to find the gfs day
+            for (let j = weeks[i].length-1;j >= 0; j--) {
+                if (weeks[i][j].full) {
+                    weeks[i][j].weekly = true;
+                    gfsDayIndex = j;
+                    break;
+                }
+            }
+        }
+
+        // Loop every month (assuming a month is represented as 4 weeks (28 days))
+        for (let i = 0; i < gfs.monthly; i++) {
+            const weekIndex = i*WeeksPerMonth;
+
+            // Backup does not exist
+            if (!processedDays[gfsDayIndex].points[weekIndex]) {
+                if (!processedDays[gfsDayIndex].full) continue;
+                processedDays[gfsDayIndex].points[weekIndex] = {
+                    full: true,
+                    weekly: false,
+                    monthly: true,
+                    yearly: false,
+                    size: main_options.full_size,
+                }
+                continue;
+            }
+            // Backup does already exist
+
+            // If the gfs day is valid (happens if weekly backups are enabled) directly set the monthly
+            if (processedDays[gfsDayIndex].full) {
+                weeks[weekIndex][gfsDayIndex].monthly = true;
+            } else {
+            // If the gfs day is invalid (no full backup) (happens if weekly backups are disabled) find the gfs day
+                // Loop every day to find gfs day
+                for (let j = 0;j < weeks[weekIndex].length; j++) {
+                    if (processedDays[j].full) {
+                        weeks[weekIndex][j].monthly = true;
+                        gfsDayIndex = j;
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        // Process yearly backups
+        // Loop every year (assuming a year is represented as 52 weeks)
+        for (let i = 0; i < gfs.yearly; i++) {
+            const weekIndex = i*WeeksPerYear;
+
+            // Backup does not exist
+            if (!processedDays[gfsDayIndex].points[weekIndex]) {
+                if (!processedDays[gfsDayIndex].full) continue;
+                processedDays[gfsDayIndex].points[weekIndex] = {
+                    full: true,
+                    weekly: false,
+                    monthly: false,
+                    yearly: true,
+                    size: main_options.full_size,
+                }
+                continue;
+            }
+            // Backup does already exist
+
+            // If the gfs day is valid (happens if weekly | monthly backups are enabled) directly set the yearly
+            if (processedDays[gfsDayIndex].full) {
+                weeks[weekIndex][gfsDayIndex].yearly = true;
+            } else {
+            // If the gfs day is invalid (no full backup) (happens if weekly & monthly backups are disabled) find the gfs day
+                // Loop every day to find the gfs day
+                for (let j = 0;j < weeks[weekIndex].length; j++) {
+                    if (processedDays[j].full) {
+                        weeks[weekIndex][j].yearly = true;
+                        gfsDayIndex = j;
+                        break;
+                    }
+                }
+            }
         }
 
         return weekdays;
@@ -259,10 +376,25 @@
                         <span class="inline sm:hidden">{weekday.day[0]}</span>
                     </p>
                     {#each weekday.points as backup}
-                        <div transition:fade class="btn btn-ghost {weekday.full ? "bg-orange-500" : "bg-green-500"}
+                    {#if backup}
+                    <div class="tooltip indicator sm:my-4 my-2" data-tip="{backup.size}">
+                        {#if backup.yearly}
+                        <span class="indicator-item badge badge-error">yearly</span>
+                        {:else if backup.monthly}
+                        <span class="indicator-item badge badge-info">monthly</span>
+                        {:else if backup.weekly}
+                        <span class="indicator-item badge badge-primary">weekly</span>
+                        {/if}
+                        <div transition:fade class="btn btn-ghost {backup.full ? "bg-orange-500" : "bg-green-500"}
                             bg-opacity-25 hover:animate-pulse
-                            xl:w-28 xl:h-28 md:w-24 md:h-24 h-10 w-10 sm:my-4 my-2">
+                            xl:w-28 xl:h-28 md:w-24 md:h-24 h-10 w-10">
                         </div>
+                    </div>
+                    {:else}
+                    <div transition:fade class="bg-opacity-0
+                        xl:w-28 xl:h-28 md:w-24 md:h-24 h-10 w-10 sm:my-4 my-2">
+                    </div>
+                    {/if}
                     {/each}
                 </div>
             {/if}
