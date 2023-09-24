@@ -5,7 +5,6 @@
     */
 
     import { loadIfExisting, resetLocStore, setLocStore } from "$lib/localstore.helper";
-    import { error, json } from "@sveltejs/kit";
     import { onMount } from "svelte";
     import { fade } from "svelte/transition";
 
@@ -106,60 +105,78 @@
      * @returns {WEEKDAY[]}
     */
     const processRetentionPolicy = (weekdays, main_options) => {
+        // Clear points
+        weekdays.map((weekday) => weekday.points = []);
+
         /** @type {WEEKDAY[]} */
         const processedDays = weekdays.filter(weekday => weekday.exec);
         if (processedDays.length === 0) return weekdays;
 
         // Backups per day ignoring the last weekly block
         /** @type {number} */
-        const basePoints = Math.floor(main_options.restore_points / processedDays.length);
+        let weekCount = Math.floor(main_options.restore_points / processedDays.length);
 
         // Backups from the last weekly block
         /** @type {number} */
-        const extraPoints = main_options.restore_points % processedDays.length;
-        
-        /** @type {number} */
-        let dayIndex = 0;
-        // We create a new object and return it, because svelte will not react if we directly edit the weekdays object.
-        return weekdays.map((weekday, _) => {
-            if (!weekday.exec) return weekday;
+        let extraDays = main_options.restore_points % processedDays.length;
 
-            dayIndex++;
+        // Has Extra Backups
+        /** @type {boolean} */
+        let hasExtraDays = false;
 
-            /** @type {Array<BACKUP>} */
-            let pointsBuf = [];
+        // Is in search State
+        /** @type {boolean} */
+        let isSearchState = false;
 
-            for (let pointIndex = 0; pointIndex < basePoints + (dayIndex <= extraPoints ? 1 : 0); pointIndex++) {
-                /** @type {BACKUP} */
-                const point = {
-                    full: false,
+        if (extraDays>0) {
+            weekCount++;
+            hasExtraDays = true;
+        }
+
+        for (let week = 0; week < weekCount; week++) {
+
+            // Set day count to the extraDays on the last week
+            let dayCount = week+1===weekCount && hasExtraDays
+                ? extraDays : processedDays.length; 
+
+            // When searching for the next full backup it only wants to read 1 backup at the time
+            dayCount = isSearchState ? 1 : dayCount;
+
+            for (let day = 0; day < dayCount; day++) {
+                processedDays[day].points.push({
+                    full: processedDays[day].full,
                     weekly: false,
                     monthly: false,
                     yearly: false,
-                    size: 0
-                };
+                    size: processedDays[day].full ? main_options.full_size : main_options.increment_size,
+                });
 
-                // Initial Backup is always full
-                if (pointIndex===0 && dayIndex===1) {
-                    point.full = true
-                } else {
-                    // Set Backup to full if the weekday is full
-                    point.full = weekday.full;
+                /**
+                 * Setting ensures continuous backup chain.
+                 * Veeam retains full backups until dependent incrementals reach retention limit.
+                 * 
+                 * Checks if the last day of the last week is a full and if not go to the next full
+                */
+                if (week+1===weekCount
+                    && day+1===dayCount
+                    && !processedDays[day].full) {
+                    
+                    if (!processedDays.some((weekday) => weekday.full)) {
+                        // This applies when forever-forward incremental policy is used 
+                        processedDays[day].points[week].full = true;
+                        break;
+                    }
+                    if (processedDays.length > dayCount) {
+                        dayCount++;
+                        continue;
+                    }
+                    weekCount++;
+                    isSearchState = true;
                 }
-
-                // Set Backup size
-                point.size = point.full 
-                    ? main_options.full_size : main_options.increment_size;
-                
-                pointsBuf.push(point);
             }
-            return {
-                day: weekday.day,
-                points: pointsBuf,
-                exec: weekday.exec,
-                full: weekday.full,
-            };
-        });
+        }
+        
+        return weekdays;
     }
 
     /** ProcessGFS will mark all the GFS points
@@ -177,6 +194,14 @@
 
         /** @type {Array<WEEKDAY>} Pointer cache for processed days */
         const processedDays = weekdays.filter((weekday) => weekday.exec);
+        if (processedDays.length <= 0) {
+            return weekdays;
+        }
+
+        // When using forever-forward incremental policy, gfs cannot be used
+        if (!processedDays.some((weekday) => weekday.full)) {
+            return weekdays;
+        }
 
         const WeeksPerMonth = 4;
         const WeeksPerYear = 52;
@@ -185,15 +210,13 @@
         let weeks = [];
 
         // Convert structure from day-based to week-based
-        let weekIndex = 0;
-        for (let i = 0; i < main_options.restore_points;) {
-            const week = [];
-            for (let j = 0; j < processedDays.length && i < main_options.restore_points; j++) {
-                week.push(processedDays[j].points[weekIndex]);
-                i++;
+        for (let weekIndex = 0; weekIndex < processedDays[0].points.length; weekIndex++) {
+            const curWeek = [];
+            for (const day of processedDays) {
+                if (day.points[weekIndex])
+                    curWeek.push(day.points[weekIndex]);
             }
-            weeks.push(week);
-            weekIndex++;
+            weeks.push(curWeek);
         }
 
         // Process weekly backups
@@ -336,7 +359,7 @@
         }
     }
 
-    /** Updateevent for GFS Strategie 
+    /** Updateevent for GFS Strategy 
      * 
      * The function must execute even with a bound value since the svelte state doesn't update on subproperty changes.
      * Although setting the key directly seems redundant due to the value binding,
@@ -436,15 +459,14 @@
 
     const calculateStorage = () => {
         /**
-         * Veeam retains a full backup chain until its last incremental is eligible for deletion.
-         * Two full backups are buffered: one for the chain's integrity and another as a safeguard.
+         * One full backup is defined as safeguard buffer.
          * 
          * 
-         * IMPORTANT: Do not take this 2 full-backups as your backups storage buffer, 
-         * they are system-critical buffers we need. You will always need to define a buffer for the backups,
+         * IMPORTANT: Do not take this buffer as your backup storage buffer, 
+         * it's a system-critical buffer. You will always need to define a buffer for the backups,
          * usually this should be around 15% (without the data growth buffer)
         */
-        maxStorage = 2*main_options.full_size;
+        maxStorage = main_options.full_size;
 
         // Filter out days that are processed (i.e. days on which backups are executed)
         const processedDays = weekdays.filter((weekday) => weekday.exec);
@@ -566,7 +588,7 @@
     </div>
 
     <div class="option-container flex flex-col">
-        <h1 class="underline font-bold">GFS Strategie
+        <h1 class="underline font-bold">GFS Strategy
             <div class="dropdown dropdown-end">
                 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
                 <!-- svelte-ignore a11y-label-has-associated-control -->
@@ -602,7 +624,8 @@
         </div>
         <div class="flex flex-row mt-6 justify-between items-center">
             <p class="pr-4">Compact View</p>
-            <input type="checkbox" class="toggle toggle-primary opacity-50" bind:checked={compactViewChecked} />
+            <input type="checkbox" class="toggle toggle-primary opacity-50" 
+            on:change={() => {window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })}} bind:checked={compactViewChecked} />
         </div>
     </div>
 
