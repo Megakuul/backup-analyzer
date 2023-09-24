@@ -6,6 +6,6 @@ Application is hosted on Vercel.
 
 **Important**:
 
-Note that the code is not designed to scale or built using best practices. I did this in 2 days and you shouldn't take it as advice for building webapps with SvelteKit. 
+Note that the code is not designed to scale or built using best practices. I did this in 3 days and you shouldn't take it as advice for building webapps with SvelteKit. 
 
 It lacks a lot of code encapsulation and there is no standard for positioning Tailwind components, which really makes it difficult to read. The abstraction for the backup-calculators interface is extremly weird and unreadable, again do not take this as any good or acceptable practice, you could even say it's a crime against humanity. 
