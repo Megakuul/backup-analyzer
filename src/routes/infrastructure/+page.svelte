@@ -50,7 +50,7 @@
         if (localCount===0 && cloudCount>1) {
             twoMedia = true;
             vendorLock = true;
-        } else if (localCount+cloudCount>1 && cloudCount>0) {
+        } else if (localCount+cloudCount>1) {
             twoMedia = true;
             vendorLock = false;
         } else {
