@@ -36,6 +36,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@vercel/kv": "^0.2.3",
 		"daisyui": "^3.7.6"
 	}
 }

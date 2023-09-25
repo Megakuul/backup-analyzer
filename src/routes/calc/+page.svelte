@@ -1,5 +1,5 @@
 <script>
-    import { base } from "$app/paths";
+    import { page } from "$app/stores";
     /**
      * @typedef {('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday')} DAY
     */
@@ -7,6 +7,7 @@
     import { loadIfExisting, resetLocStore, setLocStore } from "$lib/localstore.helper";
     import { onMount } from "svelte";
     import { fade } from "svelte/transition";
+    import LinkGenerator from "./LinkGenerator.svelte";
 
     const WEEKDAYS_LOCSTORE_KEY = "conf_weekdays";
     const GFS_LOCSTORE_KEY = "conf_gfs";
@@ -74,6 +75,9 @@
     /** uploadInput binding @type {HTMLElement} */
     let uploadInput;
 
+    /** linkDialog binding @type {HTMLDialogElement} */
+    let linkDialog;
+
     /** State of Compact View @type {boolean} */
     let compactViewChecked = false;
 
@@ -90,10 +94,10 @@
     let maxStorageCust = 0;
 
     onMount(() => {
-        // Try to load config from localstore
-        weekdays = loadIfExisting(WEEKDAYS_LOCSTORE_KEY, weekdays);
-        gfs = loadIfExisting(GFS_LOCSTORE_KEY, gfs);
-        main_options = loadIfExisting(MAIN_OPTIONS_LOCSTORE_KEY, main_options);
+        weekdays = loadIfExisting($page.data.weekdays, WEEKDAYS_LOCSTORE_KEY, weekdays);
+        gfs = loadIfExisting($page.data.gfs, GFS_LOCSTORE_KEY, gfs);
+        main_options = loadIfExisting($page.data.main_options, MAIN_OPTIONS_LOCSTORE_KEY, main_options);
+        
         updateCanvas();
     });
 
@@ -655,15 +659,21 @@
     </div>
 </div>
 
+
 <div class="flex flex-wrap justify-around my-5">
     <button on:click={onSaveClick} 
-    class="btn {isSaveState ? "btn-success" : "btn-ghost"} opacity-50 transition-all min-w-[25%] max-w-full">
+    class="btn {isSaveState ? "btn-success" : "btn-ghost"} opacity-50 transition-all min-w-[20%] max-w-full">
         {isSaveState ? "Saved!" : "Save State"}</button>
-    <button on:click={onResetClick} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Reset State</button>
-    <button on:click={onDownloadClick} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Download State</button>
-    <button on:click={() => {uploadInput.click()}} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Upload State</button>
+    <button on:click={onResetClick} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Reset State</button>
+    <button on:click={onDownloadClick} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Download State</button>
+    <button on:click={() => {uploadInput.click()}} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Upload State</button>
     <input style="display:none" type="file" accept=".json" on:change={(e)=>onUploadInput(e)} bind:this={uploadInput} >
+
+    <button on:click={() => {linkDialog.showModal()}} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Generate Link</button>
 </div>
+
+<LinkGenerator bind:dialog={linkDialog} bind:weekdays={weekdays} bind:main_options={main_options} bind:gfs={gfs} />
+
 
 <style>
     .option-container {

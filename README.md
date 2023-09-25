@@ -2,7 +2,7 @@
 
 This is a very simple webapp, that is designed to help you define/create/manage Backup-Strategies and Backup-Retentions, primarly for the Veeam Backup Platform.
 
-Application is hosted on Vercel.
+Application is hosted on Vercel, as database for the generated links Vercels-KV database is used.
 
 **Important**:
 

@@ -1,10 +1,13 @@
 /**
- * @param {string} key 
- * @param {*} def 
+ * @param {*} main Data that is loaded usually
+ * @param {string} fallbackKey If main is null, it searches the localstore by this key
+ * @param {*} def If all options failed, it will fallback to default (hardcoded)
  * @returns 
  */
-export const loadIfExisting = (key, def) => {
-    const val = localStorage.getItem(key);
+export const loadIfExisting = (main, fallbackKey, def) => {
+    if (main)
+        return main;
+    const val = localStorage.getItem(fallbackKey);
     return val ? JSON.parse(val) : def;
 }
 
