@@ -37,6 +37,8 @@
 	"type": "module",
 	"dependencies": {
 		"@vercel/kv": "^0.2.3",
-		"daisyui": "^3.7.6"
+		"daisyui": "^3.7.6",
+		"jspdf": "^2.5.1",
+		"jspdf-autotable": "^3.6.0"
 	}
 }

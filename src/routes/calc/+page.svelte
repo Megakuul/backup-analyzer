@@ -9,6 +9,7 @@
     import { processGFS } from "$lib/GFSProcessor";
     import { calculateStorage } from "$lib/StorageCalculator";
     import { CONFIG_LOCSTORE_KEY } from "$lib/constants";
+    import { generateAndDownloadPDF } from "$lib/PDFGenerator";
 
     /** @type {CONFIG} */
     let config = {
@@ -352,14 +353,15 @@
 
 <div class="flex flex-wrap justify-around my-5">
     <button on:click={onSaveClick} 
-    class="btn {isSaveState ? "btn-success" : "btn-ghost"} opacity-50 transition-all min-w-[20%] max-w-full">
+    class="btn {isSaveState ? "btn-success" : "btn-ghost"} opacity-50 transition-all min-w-[25%] max-w-full">
         {isSaveState ? "Saved!" : "Save State"}</button>
-    <button on:click={onResetClick} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Reset State</button>
-    <button on:click={onDownloadClick} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Download State</button>
-    <button on:click={() => {uploadInput.click()}} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Upload State</button>
+    <button on:click={onResetClick} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Reset State</button>
+    <button on:click={onDownloadClick} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Download State</button>
+    <button on:click={() => {uploadInput.click()}} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Upload State</button>
     <input style="display:none" type="file" accept=".json" on:change={(e)=>onUploadInput(e)} bind:this={uploadInput} >
 
-    <button on:click={() => {linkDialog.showModal()}} class="btn btn-ghost opacity-50 min-w-[20%] max-w-full">Generate Link</button>
+    <button on:click={() => {linkDialog.showModal()}} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Generate Link</button>
+    <button on:click={() => {generateAndDownloadPDF(config, storage_estimate)}} class="btn btn-ghost opacity-50 min-w-[25%] max-w-full">Download PDF</button>
 </div>
 
 <LinkGenerator bind:dialog={linkDialog} bind:config={config} />
