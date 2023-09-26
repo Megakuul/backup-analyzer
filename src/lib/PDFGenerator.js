@@ -75,14 +75,8 @@ export const generateAndDownloadPDF = (config, storageEstimate) => {
             startY: 240,
             headStyles: { fillColor: [121, 172, 120] },
         })
-
-        var string = doc.output('datauristring');
-   var embed = "<embed width='100%' height='100%' src='" + string + "'/>"
-   var x = window.open();
-   x?.document.open();
-   x?.document.write(embed);
-   x?.document.close();
-    //doc.save("Backup_Strategy_Report.pdf")
+        
+    doc.save("Backup_Strategy_Report.pdf")
 }
 
 /**
