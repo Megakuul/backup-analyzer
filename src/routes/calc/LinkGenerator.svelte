@@ -4,14 +4,8 @@
     /** @type {HTMLDialogElement}*/
     export let dialog;
 
-    /** @type {object}*/
-    export let weekdays;
-
-    /** @type {object}*/
-    export let main_options;
-
-    /** @type {object}*/
-    export let gfs;
+    /** @type {CONFIG}*/
+    export let config;
 
     /** @type {string} */
     let link = "";
@@ -21,13 +15,7 @@
     }
 
     const createLink = async () => {
-        const config = {
-            weekdays: weekdays,
-            main_options: main_options,
-            gfs: gfs
-        };
-
-        const res = await fetch("", {
+        const res = await fetch("/api/calc", {
             method: "POST",
             body: JSON.stringify(config),
             headers: {
