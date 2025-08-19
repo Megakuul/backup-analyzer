@@ -283,7 +283,7 @@
     </div>
 
     <div class="option-container flex flex-col">
-        <h1 class="underline font-bold">GFS Strategy
+        <div class="underline font-bold">GFS Strategy
             <div class="dropdown dropdown-end">
                 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
                 <!-- svelte-ignore a11y-label-has-associated-control -->
@@ -300,7 +300,7 @@
                     </div>
                 </div>
             </div>
-        </h1>
+        </div>
         
         <div class="flex flex-row mt-4 justify-between items-center">
             <p class="pr-4" title="max 53 points">Weekly</p>

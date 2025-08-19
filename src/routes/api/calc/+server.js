@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { kv } from "@vercel/kv";
+import { createClient } from 'redis';
 import { DEFAULT_ID_KEYLENGTH, DEFAULT_LINK_TTL, CONFIG_ID_HEADER_KEY } from '$lib/constants';
 
+const redis = await createClient().connect();
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ request }) {
@@ -11,7 +12,7 @@ export async function GET({ request }) {
         err: `Missing header key: ${CONFIG_ID_HEADER_KEY}`,
     }, {status: 400});
 
-    const config = await kv.get(id);
+    const config = await redis.get(id);
     if (!config) return json({
         err: "Link is not valid or has already expired!",
     }, {status: 404});
@@ -30,8 +31,11 @@ export async function POST({ request }) {
 
     const link = genKey(DEFAULT_ID_KEYLENGTH);
     
-    await kv.set(link, reqData, {
-        ex: DEFAULT_LINK_TTL
+    await redis.set(link, reqData, {
+        expiration: {
+            type: "EX",
+            value: DEFAULT_LINK_TTL,            
+        }
     });
 
     return json({

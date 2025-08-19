@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import Icon from "$lib/images/backup-analyzer.png";
 
 const FFI = "Forever-Forward-Incremental";
@@ -34,7 +34,7 @@ export const generateAndDownloadPDF = (config, storageEstimate) => {
 
     const doc = new jsPDF()
 
-    const tableColumns = ["Specification", "Evaluation"];
+    const tableColumns = [["Specification", "Evaluation"]];
     const basicSettings = [
         ["Restore Points", config.main_options.restore_points],
         ["Retention Policy", retentionPolicy],
@@ -59,22 +59,31 @@ export const generateAndDownloadPDF = (config, storageEstimate) => {
         .setFontSize(14)
         .text("Basic Configuration", 11, 95)
         .line(10, 100, 200, 100)
-        .autoTable(tableColumns, basicSettings, {
-            startY: 110,
-            headStyles: { fillColor: [121, 172, 120] },
-        })
         .text("Advanced Configuration", 11, 165)
         .line(10, 170, 200, 170)
-        .autoTable(tableColumns, advancedSettings, {
-            startY: 180,
-            headStyles: { fillColor: [121, 172, 120] },
-        })
         .text("Storage Evaluation", 11, 225)
         .line(10, 230, 200, 230)
-        .autoTable(tableColumns, calculation, {
-            startY: 240,
-            headStyles: { fillColor: [121, 172, 120] },
-        })
+    
+    autoTable(doc, {
+        head: tableColumns,
+        body: basicSettings,
+        startY: 110,
+        headStyles: { fillColor: [121, 172, 120] },
+    })
+
+    autoTable(doc, {
+        head: tableColumns,
+        body: advancedSettings,
+        startY: 180,
+        headStyles: { fillColor: [121, 172, 120] },
+    })
+
+    autoTable(doc, {
+        head: tableColumns,
+        body: calculation,
+        startY: 240,
+        headStyles: { fillColor: [121, 172, 120] },
+    })
         
     doc.save("Backup_Strategy_Report.pdf")
 }
