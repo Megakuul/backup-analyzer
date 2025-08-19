@@ -2,11 +2,9 @@ import { json } from '@sveltejs/kit';
 import { createClient } from 'redis';
 import { DEFAULT_ID_KEYLENGTH, DEFAULT_LINK_TTL, CONFIG_ID_HEADER_KEY } from '$lib/constants';
 
-const client = createClient();
-
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ request }) {
-    const redis = await client.connect()
+    const redis = await createClient().connect()
     const id = request.headers.get(CONFIG_ID_HEADER_KEY);
     
     if (!id) return json({
@@ -25,7 +23,7 @@ export async function GET({ request }) {
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request }) {
-    const redis = await client.connect()
+    const redis = await createClient().connect()
     const reqData = await request.json();
 
     if (!reqData) 
@@ -33,12 +31,16 @@ export async function POST({ request }) {
 
     const link = genKey(DEFAULT_ID_KEYLENGTH);
     
-    await redis.set(link, reqData, {
-        expiration: {
-            type: "EX",
-            value: DEFAULT_LINK_TTL,            
-        }
-    });
+    try {
+        await redis.set(link, reqData, {
+            expiration: {
+                type: "EX",
+                value: DEFAULT_LINK_TTL,            
+            }
+        });
+    } catch (err) {
+        return json({ success: false, err: err }, { status: 400 });
+    }
 
     return json({
         link: link,
