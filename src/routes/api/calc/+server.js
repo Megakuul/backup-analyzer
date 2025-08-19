@@ -37,16 +37,12 @@ export async function POST({ request }) {
 
     const link = genKey(DEFAULT_ID_KEYLENGTH);
     
-    try {
-        await redis.set(link, reqData, {
-            expiration: {
-                type: "EX",
-                value: DEFAULT_LINK_TTL,            
-            }
-        });
-    } catch (err) {
-        return json({ success: false, err: err }, { status: 400 });
-    }
+    await redis.set(link, reqData, {
+        expiration: {
+            type: "EX",
+            value: DEFAULT_LINK_TTL,
+        }
+    });
 
     return json({
         link: link,
