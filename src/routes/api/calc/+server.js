@@ -20,7 +20,7 @@ export async function GET({ request }) {
     }, {status: 404});
 
     return json({
-        config: config
+        config: JSON.parse(config)
     }, {status: 200});
 }
 
@@ -37,7 +37,7 @@ export async function POST({ request }) {
 
     const link = genKey(DEFAULT_ID_KEYLENGTH);
     
-    await redis.set(link, reqData, {
+    await redis.set(link, JSON.stringify(reqData), {
         expiration: {
             type: "EX",
             value: DEFAULT_LINK_TTL,
