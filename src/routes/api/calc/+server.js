@@ -1,10 +1,13 @@
 import { json } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import { createClient } from 'redis';
 import { DEFAULT_ID_KEYLENGTH, DEFAULT_LINK_TTL, CONFIG_ID_HEADER_KEY } from '$lib/constants';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ request }) {
-    const redis = await createClient().connect()
+    const redis = await createClient({
+        url: env.REDIS_URL,
+    }).connect()
     const id = request.headers.get(CONFIG_ID_HEADER_KEY);
     
     if (!id) return json({
@@ -23,8 +26,11 @@ export async function GET({ request }) {
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request }) {
-    const redis = await createClient().connect()
+    const redis = await createClient({
+        url: env.REDIS_URL,
+    }).connect()
     const reqData = await request.json();
+    
 
     if (!reqData) 
         return json({ success: false, err: "No valid link or config provided!" }, { status: 400 });
