@@ -2,10 +2,11 @@ import { json } from '@sveltejs/kit';
 import { createClient } from 'redis';
 import { DEFAULT_ID_KEYLENGTH, DEFAULT_LINK_TTL, CONFIG_ID_HEADER_KEY } from '$lib/constants';
 
-const redis = await createClient().connect();
+const client = createClient();
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ request }) {
+    const redis = await client.connect()
     const id = request.headers.get(CONFIG_ID_HEADER_KEY);
     
     if (!id) return json({
@@ -24,6 +25,7 @@ export async function GET({ request }) {
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request }) {
+    const redis = await client.connect()
     const reqData = await request.json();
 
     if (!reqData) 
